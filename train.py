@@ -133,20 +133,20 @@ def save_img_samples(batches_done):
     print("batches_done ", batches_done)
     imgs = next(iter(val_dataloader))
 
-    Gen_AB.eval()
-    Gen_BA.eval()
+    Gen_CT_MRI.eval()
+    Gen_MRI_CT.eval()
 
-    real_A = Variable(imgs["A"].type(Tensor))
-    fake_B = Gen_AB(real_A)
-    real_B = Variable(imgs["B"].type(Tensor))
-    fake_A = Gen_BA(real_B)
+    real_CT = Variable(imgs["A"].type(Tensor))
+    fake_MRI = Gen_CT_MRI(real_CT)
+    real_MRI = Variable(imgs["B"].type(Tensor))
+    fake_CT = Gen_MRI_CT(real_MRI)
     # Arange images along x-axis
-    real_A = make_grid(real_A, nrow=16, normalize=True)
-    real_B = make_grid(real_B, nrow=16, normalize=True)
-    fake_A = make_grid(fake_A, nrow=16, normalize=True)
-    fake_B = make_grid(fake_B, nrow=16, normalize=True)
+    real_CT = make_grid(real_CT, nrow=16, normalize=True)
+    real_MRI = make_grid(real_MRI, nrow=16, normalize=True)
+    fake_CT = make_grid(fake_CT, nrow=16, normalize=True)
+    fake_MRI = make_grid(fake_MRI, nrow=16, normalize=True)
     # Arange images along y-axis
-    image_grid = torch.cat((real_A, fake_B, real_B, fake_A), 1)
+    image_grid = torch.cat((real_CT, fake_MRI, real_MRI, fake_CT), 1)
 
     path = root_path + "/%s.png" % (batches_done)  # Path when running in Google Colab
 
@@ -173,17 +173,17 @@ input_shape = (hp.channels, hp.img_size, hp.img_size)
 # Initialize generator and discriminator
 ##############################################
 
-Gen_AB = GeneratorResNet(input_shape, hp.num_residual_blocks)
-Gen_BA = GeneratorResNet(input_shape, hp.num_residual_blocks)
+Gen_CT_MRI = GeneratorResNet(input_shape, hp.num_residual_blocks)
+Gen_MRI_CT = GeneratorResNet(input_shape, hp.num_residual_blocks)
 
-Disc_A = Discriminator(input_shape)
-Disc_B = Discriminator(input_shape)
+Disc_CT = Discriminator(input_shape)
+Disc_MRI = Discriminator(input_shape)
 
 if cuda:
-    Gen_AB = Gen_AB.cuda()
-    Gen_BA = Gen_BA.cuda()
-    Disc_A = Disc_A.cuda()
-    Disc_B = Disc_B.cuda()
+    Gen_CT_MRI = Gen_CT_MRI.cuda()
+    Gen_MRI_CT = Gen_MRI_CT.cuda()
+    Disc_CT = Disc_CT.cuda()
+    Disc_MRI = Disc_MRI.cuda()
     criterion_GAN.cuda()
     criterion_cycle.cuda()
     criterion_identity.cuda()
@@ -192,33 +192,33 @@ if cuda:
 # Initialize weights
 ##############################################
 
-Gen_AB.apply(initialize_conv_weights_normal)
-Gen_BA.apply(initialize_conv_weights_normal)
+Gen_CT_MRI.apply(initialize_conv_weights_normal)
+Gen_MRI_CT.apply(initialize_conv_weights_normal)
 
-Disc_A.apply(initialize_conv_weights_normal)
-Disc_B.apply(initialize_conv_weights_normal)
+Disc_CT.apply(initialize_conv_weights_normal)
+Disc_MRI.apply(initialize_conv_weights_normal)
 
 
 ##############################################
 # Buffers of previously generated samples
 ##############################################
 
-fake_A_buffer = ReplayBuffer()
+fake_CT_buffer = ReplayBuffer()
 
-fake_B_buffer = ReplayBuffer()
+fake_MRI_buffer = ReplayBuffer()
 
 
 ##############################################
 # Defining all Optimizers
 ##############################################
 optimizer_G = torch.optim.Adam(
-    itertools.chain(Gen_AB.parameters(), Gen_BA.parameters()),
+    itertools.chain(Gen_CT_MRI.parameters(), Gen_MRI_CT.parameters()),
     lr=hp.lr,
     betas=(hp.b1, hp.b2),
 )
-optimizer_Disc_A = torch.optim.Adam(Disc_A.parameters(), lr=hp.lr, betas=(hp.b1, hp.b2))
+optimizer_Disc_CT = torch.optim.Adam(Disc_CT.parameters(), lr=hp.lr, betas=(hp.b1, hp.b2))
 
-optimizer_Disc_B = torch.optim.Adam(Disc_B.parameters(), lr=hp.lr, betas=(hp.b1, hp.b2))
+optimizer_Disc_MRI = torch.optim.Adam(Disc_MRI.parameters(), lr=hp.lr, betas=(hp.b1, hp.b2))
 
 
 ##############################################
@@ -228,13 +228,13 @@ lr_scheduler_G = torch.optim.lr_scheduler.LambdaLR(
     optimizer_G, lr_lambda=LambdaLR(hp.n_epochs, hp.epoch, hp.decay_start_epoch).step
 )
 
-lr_scheduler_Disc_A = torch.optim.lr_scheduler.LambdaLR(
-    optimizer_Disc_A,
+lr_scheduler_Disc_CT = torch.optim.lr_scheduler.LambdaLR(
+    optimizer_Disc_CT,
     lr_lambda=LambdaLR(hp.n_epochs, hp.epoch, hp.decay_start_epoch).step,
 )
 
-lr_scheduler_Disc_B = torch.optim.lr_scheduler.LambdaLR(
-    optimizer_Disc_B,
+lr_scheduler_Disc_MRI = torch.optim.lr_scheduler.LambdaLR(
+    optimizer_Disc_MRI,
     lr_lambda=LambdaLR(hp.n_epochs, hp.epoch, hp.decay_start_epoch).step,
 )
 ############################################
@@ -248,13 +248,13 @@ def save_checkpoint(epoch, batches_done):
         {
             "epoch": epoch,
             "batches_done": batches_done,
-            "Gen_BA_state_dict": Gen_BA.state_dict(),
-            "Gen_AB_state_dict": Gen_AB.state_dict(),
-            "Disc_A_state_dict": Disc_A.state_dict(),
-            "Disc_B_state_dict": Disc_B.state_dict(),
+            "Gen_MRI_CT_state_dict": Gen_MRI_CT.state_dict(),
+            "Gen_CT_MRI_state_dict": Gen_CT_MRI.state_dict(),
+            "Disc_CT_state_dict": Disc_CT.state_dict(),
+            "Disc_MRI_state_dict": Disc_MRI.state_dict(),
             "optimizer_G_state_dict": optimizer_G.state_dict(),
-            "optimizer_Disc_A_state_dict": optimizer_Disc_A.state_dict(),
-            "optimizer_Disc_B_state_dict": optimizer_Disc_B.state_dict(),
+            "optimizer_Disc_CT_state_dict": optimizer_Disc_CT.state_dict(),
+            "optimizer_Disc_MRI_state_dict": optimizer_Disc_MRI.state_dict(),
         },
         checkpoint_path,
     )
@@ -263,16 +263,16 @@ def save_checkpoint(epoch, batches_done):
 #############################################
 # Load CheckPoint
 #############################################
-def load_checkpoint(checkpoint_path, Gen_BA, Gen_AB, Disc_A, Disc_B, optimizer_G, optimizer_Disc_A, optimizer_Disc_B):
+def load_checkpoint(checkpoint_path, Gen_MRI_CT, Gen_CT_MRI, Disc_CT, Disc_MRI, optimizer_G, optimizer_Disc_CT, optimizer_Disc_MRI):
     checkpoint = torch.load(checkpoint_path)
 
-    Gen_BA.load_state_dict(checkpoint["Gen_BA_state_dict"])
-    Gen_AB.load_state_dict(checkpoint["Gen_AB_state_dict"])
-    Disc_A.load_state_dict(checkpoint["Disc_A_state_dict"])
-    Disc_B.load_state_dict(checkpoint["Disc_B_state_dict"])
+    Gen_MRI_CT.load_state_dict(checkpoint["Gen_MRI_CT_state_dict"])
+    Gen_CT_MRI.load_state_dict(checkpoint["Gen_CT_MRI_state_dict"])
+    Disc_CT.load_state_dict(checkpoint["Disc_CT_state_dict"])
+    Disc_MRI.load_state_dict(checkpoint["Disc_MRI_state_dict"])
     optimizer_G.load_state_dict(checkpoint["optimizer_G_state_dict"])
-    optimizer_Disc_A.load_state_dict(checkpoint["optimizer_Disc_A_state_dict"])
-    optimizer_Disc_B.load_state_dict(checkpoint["optimizer_Disc_B_state_dict"])
+    optimizer_Disc_CT.load_state_dict(checkpoint["optimizer_Disc_CT_state_dict"])
+    optimizer_Disc_MRI.load_state_dict(checkpoint["optimizer_Disc_MRI_state_dict"])
 
     epoch = checkpoint["epoch"]
     batches_done = checkpoint["batches_done"]
@@ -284,10 +284,10 @@ def load_checkpoint(checkpoint_path, Gen_BA, Gen_AB, Disc_A, Disc_B, optimizer_G
 
 
 def train(
-    Gen_BA,
-    Gen_AB,
-    Disc_A,
-    Disc_B,
+    Gen_MRI_CT,
+    Gen_CT_MRI,
+    Disc_CT,
+    Disc_MRI,
     train_dataloader,
     n_epochs,
     criterion_identity,
@@ -295,11 +295,11 @@ def train(
     lambda_cyc,
     criterion_GAN,
     optimizer_G,
-    fake_A_buffer,
-    fake_B_buffer,
+    fake_CT_buffer,
+    fake_MRI_buffer,
     clear_output,
-    optimizer_Disc_A,
-    optimizer_Disc_B,
+    optimizer_Disc_CT,
+    optimizer_Disc_MRI,
     Tensor,
     sample_interval,
     lambda_id,
@@ -310,18 +310,18 @@ def train(
         for i, batch in enumerate(train_dataloader):
 
             # Set model input
-            real_A = Variable(batch["A"].type(Tensor))
-            real_B = Variable(batch["B"].type(Tensor))
+            real_CT = Variable(batch["A"].type(Tensor))
+            real_MRI = Variable(batch["B"].type(Tensor))
 
             # Adversarial ground truths i.e. target vectors
             # 1 for real images and 0 for fake generated images
             valid = Variable(
-                Tensor(np.ones((real_A.size(0), *Disc_A.output_shape))),
+                Tensor(np.ones((real_CT.size(0), *Disc_CT.output_shape))),
                 requires_grad=False,
             )
 
             fake = Variable(
-                Tensor(np.zeros((real_A.size(0), *Disc_A.output_shape))),
+                Tensor(np.zeros((real_CT.size(0), *Disc_CT.output_shape))),
                 requires_grad=False,
             )
 
@@ -329,8 +329,8 @@ def train(
             #  Train Generators
             #########################
 
-            Gen_AB.train()
-            Gen_BA.train()
+            Gen_CT_MRI.train()
+            Gen_MRI_CT.train()
 
             """
             PyTorch stores gradients in a mutable data structure. So we need to set it to a clean state before we use it.
@@ -339,49 +339,49 @@ def train(
             optimizer_G.zero_grad()
 
             # Identity loss
-            # First pass real_A images to the Genearator, that will generate A-domains images
-            loss_id_A = criterion_identity(Gen_BA(real_A), real_A)
+            # First pass real_CT images to the Genearator, that will generate A-domains images
+            loss_id_CT = criterion_identity(Gen_MRI_CT(real_CT), real_CT)
 
-            # Then pass real_B images to the Genearator, that will generate B-domains images
-            loss_id_B = criterion_identity(Gen_AB(real_B), real_B)
+            # Then pass real_MRI images to the Genearator, that will generate B-domains images
+            loss_id_MRI = criterion_identity(Gen_CT_MRI(real_MRI), real_MRI)
 
-            loss_identity = (loss_id_A + loss_id_B) / 2
+            loss_identity = (loss_id_CT + loss_id_MRI) / 2
 
-            # GAN losses for GAN_AB
-            fake_B = Gen_AB(real_A)
+            # GAN losses for GAN_CT_MRI
+            fake_MRI = Gen_CT_MRI(real_CT)
 
-            loss_GAN_AB = criterion_GAN(Disc_B(fake_B), valid)
+            loss_GAN_CT_MRI = criterion_GAN(Disc_MRI(fake_MRI), valid)
 
-            # GAN losses for GAN_BA
-            fake_A = Gen_BA(real_B)
+            # GAN losses for GAN_MRI_CT
+            fake_CT = Gen_MRI_CT(real_MRI)
 
-            loss_GAN_BA = criterion_GAN(Disc_A(fake_A), valid)
+            loss_GAN_MRI_CT = criterion_GAN(Disc_CT(fake_CT), valid)
 
-            loss_GAN = (loss_GAN_AB + loss_GAN_BA) / 2
+            loss_GAN = (loss_GAN_CT_MRI + loss_GAN_MRI_CT) / 2
 
             # Cycle Consistency losses
-            reconstructed_A = Gen_BA(fake_B)
+            reconstructed_CT = Gen_MRI_CT(fake_MRI)
 
             """
             Forward Cycle Consistency Loss
-            Forward cycle loss:  lambda * ||G_BtoA(G_AtoB(A)) - A|| (Equation 2 in the paper)
+            Forward cycle loss:  lambda * ||G_MRItoA(G_CTtoB(A)) - A|| (Equation 2 in the paper)
 
-            Compute the cycle consistency loss by comparing the reconstructed_A images with real real_A  images of domain A.
+            Compute the cycle consistency loss by comparing the reconstructed_CT images with real real_CT  images of domain A.
             Lambda for cycle loss is 10.0. Penalizing 10 times and forcing to learn the translation.
             """
-            loss_cycle_A = criterion_cycle(reconstructed_A, real_A)
+            loss_cycle_CT = criterion_cycle(reconstructed_CT, real_CT)
 
             """
             Backward Cycle Consistency Loss
-            Backward cycle loss: lambda * ||G_AtoB(G_BtoA(B)) - B|| (Equation 2 of the Paper)
-            Compute the cycle consistency loss by comparing the reconstructed_B images with real real_B images of domain B.
+            Backward cycle loss: lambda * ||G_CTtoB(G_MRItoA(B)) - B|| (Equation 2 of the Paper)
+            Compute the cycle consistency loss by comparing the reconstructed_MRI images with real real_MRI images of domain B.
             Lambda for cycle loss is 10.0. Penalizing 10 times and forcing to learn the translation.
             """
-            reconstructed_B = Gen_AB(fake_A)
+            reconstructed_MRI = Gen_CT_MRI(fake_CT)
 
-            loss_cycle_B = criterion_cycle(reconstructed_B, real_B)
+            loss_cycle_MRI = criterion_cycle(reconstructed_MRI, real_MRI)
 
-            loss_cycle = (loss_cycle_A + loss_cycle_B) / 2
+            loss_cycle = (loss_cycle_CT + loss_cycle_MRI) / 2
 
             """
             Finally, Total Generators Loss and Back propagation
@@ -399,68 +399,68 @@ def train(
             optimizer_G.step()
 
             #########################
-            #  Train Discriminator A
+            #  Train Discriminator CT
             #########################
 
-            optimizer_Disc_A.zero_grad()
+            optimizer_Disc_CT.zero_grad()
 
             # Real loss
-            loss_real = criterion_GAN(Disc_A(real_A), valid)
+            loss_real = criterion_GAN(Disc_CT(real_CT), valid)
             # Fake loss (on batch of previously generated samples)
 
-            fake_A_ = fake_A_buffer.push_and_pop(fake_A)
+            fake_CT_ = fake_CT_buffer.push_and_pop(fake_CT)
 
-            loss_fake = criterion_GAN(Disc_A(fake_A_.detach()), fake)
+            loss_fake = criterion_GAN(Disc_CT(fake_CT_.detach()), fake)
 
-            """ Total loss for Disc_A
+            """ Total loss for Disc_CT
             And I divide by 2 because as per Paper - "we divide the objective by 2 while
             optimizing D, which slows down the rate at which D learns,
             relative to the rate of G."
             """
-            loss_Disc_A = (loss_real + loss_fake) / 2
+            loss_Disc_CT = (loss_real + loss_fake) / 2
 
             """ do backpropagation i.e.
             ∇_Θ will get computed by this call below to backward() """
-            loss_Disc_A.backward()
+            loss_Disc_CT.backward()
 
             """
             Now we just need to update all the parameters!
             Θ_{k+1} = Θ_k - η * ∇_Θ ℓ(y_hat, y)
             """
-            optimizer_Disc_A.step()
+            optimizer_Disc_CT.step()
 
             #########################
-            #  Train Discriminator B
+            #  Train Discriminator MRI
             #########################
 
-            optimizer_Disc_B.zero_grad()
+            optimizer_Disc_MRI.zero_grad()
 
             # Real loss
-            loss_real = criterion_GAN(Disc_B(real_B), valid)
+            loss_real = criterion_GAN(Disc_MRI(real_MRI), valid)
 
             # Fake loss (on batch of previously generated samples)
-            fake_B_ = fake_B_buffer.push_and_pop(fake_B)
+            fake_MRI_ = fake_MRI_buffer.push_and_pop(fake_MRI)
 
-            loss_fake = criterion_GAN(Disc_B(fake_B_.detach()), fake)
+            loss_fake = criterion_GAN(Disc_MRI(fake_MRI_.detach()), fake)
 
-            """ Total loss for Disc_B
+            """ Total loss for Disc_MRI
             And I divide by 2 because as per Paper - "we divide the objective by 2 while
             optimizing D, which slows down the rate at which D learns,
             relative to the rate of G."
             """
-            loss_Disc_B = (loss_real + loss_fake) / 2
+            loss_Disc_MRI = (loss_real + loss_fake) / 2
 
             """ do backpropagation i.e.
             ∇_Θ will get computed by this call below to backward() """
-            loss_Disc_B.backward()
+            loss_Disc_MRI.backward()
 
             """
             Now we just need to update all the parameters!
             Θ_{k+1} = Θ_k − η * ∇_Θ ℓ(y_hat, y)
             """
-            optimizer_Disc_B.step()
+            optimizer_Disc_MRI.step()
 
-            loss_D = (loss_Disc_A + loss_Disc_B) / 2
+            loss_D = (loss_Disc_CT + loss_Disc_MRI) / 2
 
             ##################
             #  Log Progress
@@ -506,20 +506,20 @@ def train(
 checkpoint_path = "/content/drive/MyDrive/All_Datasets/ct_mri/checkpoint_epoch0_batch100.pth"
 
 # Initialize or load your models and optimizers
-# (assuming you have already defined Gen_BA, Gen_AB, Disc_A, Disc_B, optimizer_G, optimizer_Disc_A, optimizer_Disc_B)
+# (assuming you have already defined Gen_MRI_CT, Gen_CT_MRI, Disc_CT, Disc_MRI, optimizer_G, optimizer_Disc_CT, optimizer_Disc_MRI)
     #epoch, batches_done = 0, 0  # Set initial values
 
 # Check if a checkpoint file exists
     #if os.path.exists(checkpoint_path):
     # Load the checkpoint
-      #hp.epoch, batches_done = load_checkpoint(checkpoint_path, Gen_BA, Gen_AB, Disc_A, Disc_B, optimizer_G, optimizer_Disc_A, optimizer_Disc_B)
+      #hp.epoch, batches_done = load_checkpoint(checkpoint_path, Gen_MRI_CT, Gen_CT_MRI, Disc_CT, Disc_MRI, optimizer_G, optimizer_Disc_CT, optimizer_Disc_MRI)
 
 models_initialized = False
 
 # If models haven't been initialized, load the checkpoints
 if not models_initialized and os.path.exists(checkpoint_path):
     # Load the checkpoint
-    hp.epoch,batches_done = load_checkpoint(checkpoint_path, Gen_BA, Gen_AB, Disc_A, Disc_B, optimizer_G, optimizer_Disc_A, optimizer_Disc_B)
+    hp.epoch,batches_done = load_checkpoint(checkpoint_path, Gen_MRI_CT, Gen_CT_MRI, Disc_CT, Disc_MRI, optimizer_G, optimizer_Disc_CT, optimizer_Disc_MRI)
     print("Check point Loaded epocha and batch:",hp.epoch,batches_done)
     # Set the flag to indicate that models have been initialized
     models_initialized = True
@@ -529,10 +529,10 @@ if not models_initialized and os.path.exists(checkpoint_path):
 ##############################################
 
 train(
-    Gen_BA=Gen_BA,
-    Gen_AB=Gen_AB,
-    Disc_A=Disc_A,
-    Disc_B=Disc_B,
+    Gen_MRI_CT=Gen_MRI_CT,
+    Gen_CT_MRI=Gen_CT_MRI,
+    Disc_CT=Disc_CT,
+    Disc_MRI=Disc_MRI,
     train_dataloader=train_dataloader,
     n_epochs=hp.n_epochs,
     criterion_identity=criterion_identity,
@@ -540,11 +540,11 @@ train(
     lambda_cyc=hp.lambda_cyc,
     criterion_GAN=criterion_GAN,
     optimizer_G=optimizer_G,
-    fake_A_buffer=fake_A_buffer,
-    fake_B_buffer=fake_B_buffer,
+    fake_CT_buffer=fake_CT_buffer,
+    fake_MRI_buffer=fake_MRI_buffer,
     clear_output=clear_output,
-    optimizer_Disc_A=optimizer_Disc_A,
-    optimizer_Disc_B=optimizer_Disc_B,
+    optimizer_Disc_CT=optimizer_Disc_CT,
+    optimizer_Disc_MRI=optimizer_Disc_MRI,
     Tensor=Tensor,
     sample_interval=hp.sample_interval,
     lambda_id=hp.lambda_id,
