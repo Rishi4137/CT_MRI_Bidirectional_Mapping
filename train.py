@@ -24,9 +24,7 @@ from cyclegan import *
 cuda = True if torch.cuda.is_available() else False
 print("Using CUDA" if cuda else "Not using CUDA")
 
-""" So generally both torch.Tensor and torch.cuda.Tensor are equivalent. You can do everything you like with them both.
-The key difference is just that torch.Tensor occupies CPU memory while torch.cuda.Tensor occupies GPU memory.
-Of course operations on a CPU Tensor are computed with CPU while operations for the GPU / CUDA Tensor are computed on GPU. """
+
 Tensor = torch.cuda.FloatTensor if cuda else torch.Tensor
 
 
@@ -332,17 +330,12 @@ def train(
             Gen_CT_MRI.train()
             Gen_MRI_CT.train()
 
-            """
-            PyTorch stores gradients in a mutable data structure. So we need to set it to a clean state before we use it.
-            Otherwise, it will have old information from a previous iteration.
-            """
             optimizer_G.zero_grad()
 
-            # Identity loss
-            # First pass real_CT images to the Genearator, that will generate A-domains images
+            
             loss_id_CT = criterion_identity(Gen_MRI_CT(real_CT), real_CT)
 
-            # Then pass real_MRI images to the Genearator, that will generate B-domains images
+           
             loss_id_MRI = criterion_identity(Gen_CT_MRI(real_MRI), real_MRI)
 
             loss_identity = (loss_id_CT + loss_id_MRI) / 2
@@ -361,41 +354,21 @@ def train(
 
             # Cycle Consistency losses
             reconstructed_CT = Gen_MRI_CT(fake_MRI)
-
-            """
-            Forward Cycle Consistency Loss
-            Forward cycle loss:  lambda * ||G_MRItoA(G_CTtoB(A)) - A|| (Equation 2 in the paper)
-
-            Compute the cycle consistency loss by comparing the reconstructed_CT images with real real_CT  images of domain A.
-            Lambda for cycle loss is 10.0. Penalizing 10 times and forcing to learn the translation.
-            """
+         
             loss_cycle_CT = criterion_cycle(reconstructed_CT, real_CT)
 
-            """
-            Backward Cycle Consistency Loss
-            Backward cycle loss: lambda * ||G_CTtoB(G_MRItoA(B)) - B|| (Equation 2 of the Paper)
-            Compute the cycle consistency loss by comparing the reconstructed_MRI images with real real_MRI images of domain B.
-            Lambda for cycle loss is 10.0. Penalizing 10 times and forcing to learn the translation.
-            """
             reconstructed_MRI = Gen_CT_MRI(fake_CT)
 
             loss_cycle_MRI = criterion_cycle(reconstructed_MRI, real_MRI)
 
             loss_cycle = (loss_cycle_CT + loss_cycle_MRI) / 2
 
-            """
-            Finally, Total Generators Loss and Back propagation
-            Add up all the Generators loss and cyclic loss (Equation 3 of paper.
-            Also Equation I the code representation of the equation) and perform backpropagation with optimization.
-            """
+            
             loss_G = loss_GAN + lambda_cyc * loss_cycle + lambda_id * loss_identity
 
             loss_G.backward()
 
-            """
-            Now we just need to update all the parameters!
-            Θ_{k+1} = Θ_k - η * ∇_Θ ℓ(y_hat, y)
-            """
+            
             optimizer_G.step()
 
             #########################
@@ -412,21 +385,13 @@ def train(
 
             loss_fake = criterion_GAN(Disc_CT(fake_CT_.detach()), fake)
 
-            """ Total loss for Disc_CT
-            And I divide by 2 because as per Paper - "we divide the objective by 2 while
-            optimizing D, which slows down the rate at which D learns,
-            relative to the rate of G."
-            """
+            
             loss_Disc_CT = (loss_real + loss_fake) / 2
 
-            """ do backpropagation i.e.
-            ∇_Θ will get computed by this call below to backward() """
+            
             loss_Disc_CT.backward()
 
-            """
-            Now we just need to update all the parameters!
-            Θ_{k+1} = Θ_k - η * ∇_Θ ℓ(y_hat, y)
-            """
+            
             optimizer_Disc_CT.step()
 
             #########################
@@ -443,30 +408,19 @@ def train(
 
             loss_fake = criterion_GAN(Disc_MRI(fake_MRI_.detach()), fake)
 
-            """ Total loss for Disc_MRI
-            And I divide by 2 because as per Paper - "we divide the objective by 2 while
-            optimizing D, which slows down the rate at which D learns,
-            relative to the rate of G."
-            """
+            
             loss_Disc_MRI = (loss_real + loss_fake) / 2
 
-            """ do backpropagation i.e.
-            ∇_Θ will get computed by this call below to backward() """
+           
             loss_Disc_MRI.backward()
 
-            """
-            Now we just need to update all the parameters!
-            Θ_{k+1} = Θ_k − η * ∇_Θ ℓ(y_hat, y)
-            """
+            
             optimizer_Disc_MRI.step()
 
             loss_D = (loss_Disc_CT + loss_Disc_MRI) / 2
 
-            ##################
-            #  Log Progress
-            ##################
+            
 
-            # Determine approximate time left
             batches_done = epoch * len(train_dataloader) + i
 
             batches_left = n_epochs * len(train_dataloader) - batches_done
