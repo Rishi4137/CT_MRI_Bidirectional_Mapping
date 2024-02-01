@@ -38,10 +38,7 @@ class ResidualBlock(nn.Module):
 # Generator
 ##############################################
 
-""" As per Paper -- Generator with 9 residual blocks consists of:
-c7s1-64,d128,d256,R256,R256,R256, R256,R256,R256,R256,R256,R256,
-u128, u64,c7s1-3
- """
+
 
 
 class GeneratorResNet(nn.Module):
@@ -113,15 +110,7 @@ class GeneratorResNet(nn.Module):
 ##############################
 #        Discriminator
 ##############################
-""" We use 70 × 70 PatchGAN.
 
-Let Ck denote a 4 × 4 Convolution-InstanceNorm-LeakyReLU layer with k filters and stride 2.
-
-After the last layer, we apply a convolution to produce a 1-dimensional output.
-
-We do not use InstanceNorm for the first C64 layer.
-
-We use leaky ReLUs with a slope of 0.2. The discriminator architecture is:" C64-C128-C256-C512 """
 
 
 class Discriminator(nn.Module):
