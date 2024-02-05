@@ -80,77 +80,22 @@ class ImageDataset(Dataset):
 # Replay Buffer
 ########################################################
 
-"""
-As per the paper -  To reduce model oscillation, we update the discriminator using a history of generated images rather than the
-ones produced by the latest generators. We keep an image
-buffer that stores the 50 previously created images.
 
-And here the followed - https://arxiv.org/pdf/1612.07828.pdf
-
-
-This is another strategy used to stabilize the CycleGAN Training
-
-Replay buffer is used to train the discriminator. Generated images are added to the replay buffer and sampled from it.
-
-The replay buffer returns the newly added image with a probability of 0.5.
-
-Otherwise, it sends an older generated image and replaces the older image with the newly generated image.
-
-This is done to reduce model oscillation. """
 
 
 class ReplayBuffer:
-    """
-    A class used to represent a Replay Buffer. This buffer stores a certain number of previously
-    generated images for training a Generative Adversarial Network (CycleGAN).
-    This ReplayBuffer class is a useful tool in the context of CycleGAN as it can help
-    to stabilize the learning process by reusing older generated images.
-
-    ...
-
-    Attributes
-    ----------
-    max_size : int
-        maximum number of images that can be stored in the buffer
-    data : list
-        the list storing the images
-
-    Methods
-    -------
-    push_and_pop(data):
-        Adds new images to the buffer and returns a mixed batch of old and new images.
-    """
+   
 
     # We keep an image buffer that stores
     # the 50 previously created images.
     def __init__(self, max_size=50):
-        """
-        Constructs the necessary attributes for the ReplayBuffer object.
-
-        Parameters
-        ----------
-            max_size : int
-                maximum number of images that can be stored in the buffer. Should be greater than 0.
-        """
+       
         assert max_size > 0, "Empty buffer."
         self.max_size = max_size
         self.data = []
 
     def push_and_pop(self, data):
-        """
-        This method accepts a batch of images, saves them to the buffer, and returns a new batch of images.
-        The returned batch is composed of some of the new images and, when the buffer is full, possibly some older images.
-
-        Parameters
-        ----------
-            data : torch.Tensor
-                The new images to add to the buffer.
-
-        Returns
-        -------
-            torch.Tensor
-                A batch of images consisting of new images and possibly some older images from the buffer.
-        """
+        
         to_return = []
         for element in data.data:
             element = torch.unsqueeze(element, 0)
@@ -180,39 +125,9 @@ class ReplayBuffer:
 
 
 class LambdaLR:
-    """
-    A class used to represent a Learning Rate Scheduler that follows a LambdaLR policy.
-    The learning rate decreases linearly after a specified epoch.
-
-    ...
-
-    Attributes
-    ----------
-    n_epochs : int
-        total number of epochs for training
-    offset : int
-        number of epochs offset to be applied
-    decay_start_epoch : int
-        epoch from which learning rate decay should start
-
-    Methods
-    -------
-    step(epoch):
-        Calculates the multiplicative factor for the learning rate based on the current epoch.
-    """
+   
     def __init__(self, n_epochs, offset, decay_start_epoch):
-        """
-        Constructs the necessary attributes for the LambdaLR object.
-
-        Parameters
-        ----------
-        n_epochs : int
-            Total number of epochs for training.
-        offset : int
-            Number of epochs offset to be applied.
-        decay_start_epoch : int
-            Epoch from which learning rate decay should start.
-        """
+       
         assert (
             n_epochs - decay_start_epoch
         ) > 0, "Decay must start before the training session ends!"
@@ -221,20 +136,7 @@ class LambdaLR:
         self.decay_start_epoch = decay_start_epoch
 
     def step(self, epoch):
-        """
-        This method calculates the multiplicative factor for the learning rate based on the current epoch.
-        The learning rate decreases linearly after decay_start_epoch.
-
-        Parameters
-        ----------
-        epoch : int
-            The current training epoch.
-
-        Returns
-        -------
-        float
-            A multiplicative factor (between 1.0 and 0.0) for the learning rate.
-        """
+        
         # Below line checks whether the current epoch has exceeded the decay epoch(which is 100)
         # e.g. if current epoch is 80 then max (0, 80 - 100) will be 0.
         # i.e. then entire numerator will be 0 - so 1 - 0 is 1
@@ -250,19 +152,7 @@ class LambdaLR:
 
 
 def initialize_conv_weights_normal(m):
-    """
-    Initializes the weights and biases of Convolutional and Batch Normalization layers
-    in a neural network model using normal distribution.
-
-    Parameters
-    ----------
-    m : torch.nn.Module
-        The module or layer in a PyTorch model, which is to be initialized.
-
-    Returns
-    -------
-    None
-    """
+   
     # Extract the class name of the module to determine its type.
     classname = m.__class__.__name__
 
