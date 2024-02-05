@@ -49,9 +49,7 @@ class GeneratorResNet(nn.Module):
 
         # Initial convolution block
         out_channels = 64
-        # I define a variable 'model' which I will continue to update
-        # throughout the 3 blocks of Residual -> Downsampling -> Upsampling
-        # First c7s1-64
+        
         model = [
             nn.ReflectionPad2d(channels),
             nn.Conv2d(channels, out_channels, kernel_size=7),
