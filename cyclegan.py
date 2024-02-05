@@ -71,9 +71,7 @@ class GeneratorResNet(nn.Module):
             ]
             in_channels = out_channels
 
-        """ Residual blocks - Per Paper
-        R256,R256,R256,R256,R256,R256,R256,R256,R256
-        """
+       
         for _ in range(num_residual_blocks):
             model += [ResidualBlock(out_channels)]
 
